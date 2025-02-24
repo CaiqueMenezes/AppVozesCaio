@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor de Texto para Áudio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 2rem 0;
+        }
+        .container {
+            max-width: 800px;
+            background-color: #1e1e1e;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        .form-control, .form-select {
+            background-color: #2d2d2d;
+            border-color: #404040;
+            color: #e0e0e0;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #363636;
+            border-color: #0d6efd;
+            color: #ffffff;
+            box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+            border-color: #0a58ca;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+        }
+        h1 {
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        #audioPlayer {
+            background-color: #2d2d2d;
+            border-radius: 0.5rem;
+            width: 100%;
+        }
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1rem;
+            background-color: #2d2d2d;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Conversor de Texto para Áudio</h1>
+        <ul class="nav nav-tabs mb-4" id="converterTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-content" type="button" role="tab">Texto</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-content" type="button" role="tab">Arquivos</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="converterTabsContent">
+            <div class="tab-pane fade show active" id="text-content" role="tabpanel">
+                <form method="POST" class="needs-validation" novalidate id="textForm">
+            <div id="textInputsContainer">
+                <div class="mb-4 text-input-group">
+                    <label for="text-0" class="form-label">Texto para converter:</label>
+                    <div class="d-flex gap-2">
+                        <textarea class="form-control" id="text-0" name="text[]" rows="5" required></textarea>
+                        <button type="button" class="btn btn-danger align-self-start remove-text-btn d-none">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="invalid-feedback">Por favor, insira um texto para converter.</div>
+                </div>
+            </div>
+            <div class="mb-4">
+                <button type="button" class="btn btn-secondary" id="addTextBtn">
+                    <i class="bi bi-plus-circle"></i> Adicionar mais texto
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="language" class="form-label">Selecione o idioma:</label>
+                <select class="form-select" id="language" required>
+                    <option value="" selected disabled>Escolha um idioma</option>
+                    {% for language, voice_list in voices.items() %}
+                    <option value="{{ language }}">{{ language }}</option>
+                    {% endfor %}
+                </select>
+                <div class="invalid-feedback">Por favor, selecione um idioma.</div>
+            </div>
+            <div class="mb-4">
+                <label for="voice" class="form-label">Selecione a voz:</label>
+                <select class="form-select" id="voice" name="voice" required disabled>
+                    <option value="" selected disabled>Escolha uma voz</option>
+                </select>
+                <div class="invalid-feedback">Por favor, selecione uma voz.</div>
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary" id="convertButton">
+                    <i class="bi bi-soundwave"></i> Converter para Áudio
+                </button>
+            </div>
+            <div id="loadingIndicator" class="d-none loading-container">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <span>Convertendo texto para áudio...</span>
+            </div>
+            <div id="downloadSection" class="d-none mt-4">
+                <div id="audioContainer" class="mt-4">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Status</th>
+                                <th>Tempo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audioList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </form>
+    </div>
+            <div class="tab-pane fade" id="file-content" role="tabpanel">
+                <form method="POST" class="needs-validation" novalidate id="fileForm" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label for="files" class="form-label">Selecione os arquivos de texto:</label>
+                        <input type="file" class="form-control" id="files" name="files[]" accept=".txt,.docx" multiple required>
+                        <div class="invalid-feedback">Por favor, selecione pelo menos um arquivo.</div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="fileLanguage" class="form-label">Selecione o idioma:</label>
+                        <select class="form-select" id="fileLanguage" required>
+                            <option value="" selected disabled>Escolha um idioma</option>
+                            {% for language, voice_list in voices.items() %}
+                            <option value="{{ language }}">{{ language }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Por favor, selecione um idioma.</div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="fileVoice" class="form-label">Selecione a voz:</label>
+                        <select class="form-select" id="fileVoice" name="voice" required disabled>
+                            <option value="" selected disabled>Escolha uma voz</option>
+                        </select>
+                        <div class="invalid-feedback">Por favor, selecione uma voz.</div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="convertFilesButton">
+                            <i class="bi bi-soundwave"></i> Converter Arquivos para Áudio
+                        </button>
+                    </div>
+                    <div id="fileLoadingIndicator" class="d-none loading-container">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <span>Convertendo arquivos para áudio...</span>
+                    </div>
+                    <div id="fileDownloadSection" class="d-none mt-4">
+                        <div id="fileAudioContainer"></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const textForm = document.getElementById('textForm');
+            const fileForm = document.getElementById('fileForm');
+            const languageSelect = document.getElementById('language');
+            const voiceSelect = document.getElementById('voice');
+            const convertButton = document.getElementById('convertButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const downloadSection = document.getElementById('downloadSection');
+            const textInputsContainer = document.getElementById('textInputsContainer');
+            const addTextBtn = document.getElementById('addTextBtn');
+            const audioContainer = document.getElementById('audioContainer');
+            let textCounter = 1;
+
+            // Store all voices data
+            const voicesData = {
+                {% for language, voice_list in voices.items() %}
+                "{{ language }}": [
+                    {% for voice_id, voice_name in voice_list %}
+                    {id: "{{ voice_id }}", name: "{{ voice_name }}"},
+                    {% endfor %}
+                ],
+                {% endfor %}
+            };
+
+            // Update voice options when language changes
+            languageSelect.addEventListener('change', function() {
+                const selectedLanguage = this.value;
+                const voices = voicesData[selectedLanguage] || [];
+
+                voiceSelect.innerHTML = '<option value="" disabled selected>Escolha uma voz</option>';
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    voiceSelect.appendChild(option);
+                });
+
+                voiceSelect.disabled = false;
+            });
+
+            // Add new text input field
+            addTextBtn.addEventListener('click', function() {
+                const newInputGroup = document.createElement('div');
+                newInputGroup.className = 'mb-4 text-input-group';
+                newInputGroup.innerHTML = `
+                    <label for="text-${textCounter}" class="form-label">Texto para converter:</label>
+                    <div class="d-flex gap-2">
+                        <textarea class="form-control" id="text-${textCounter}" name="text[]" rows="5" required></textarea>
+                        <button type="button" class="btn btn-danger align-self-start remove-text-btn">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="invalid-feedback">Por favor, insira um texto para converter.</div>
+                `;
+                textInputsContainer.appendChild(newInputGroup);
+                textCounter++;
+
+                // Show remove button for first text input if there are multiple inputs
+                if (textInputsContainer.children.length > 1) {
+                    textInputsContainer.querySelector('.remove-text-btn').classList.remove('d-none');
+                }
+            });
+
+            // Remove text input field
+            textInputsContainer.addEventListener('click', function(e) {
+                if (e.target.closest('.remove-text-btn')) {
+                    const inputGroup = e.target.closest('.text-input-group');
+                    inputGroup.remove();
+
+                    // Hide remove button for first text input if only one input remains
+                    if (textInputsContainer.children.length === 1) {
+                        textInputsContainer.querySelector('.remove-text-btn').classList.add('d-none');
+                    }
+                }
+            });
+
+            let audioCounter = 1;
+
+            textForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                if (!this.checkValidity()) {
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                    return;
+                }
+
+                const formData = new FormData(this);
+                const texts = formData.getAll('text[]');
+                const voiceId = formData.get('voice');
+
+                convertButton.disabled = true;
+                loadingIndicator.classList.remove('d-none');
+
+                try {
+                    if (!voiceId) {
+                        throw new Error('Por favor, selecione uma voz antes de converter.');
+                    }
+
+                    for (let i = 0; i < texts.length; i++) {
+                        if (!texts[i].trim()) {
+                            throw new Error('O texto não pode estar vazio.');
+                        }
+
+                        const currentFormData = new FormData();
+                        currentFormData.append('text', texts[i]);
+                        currentFormData.append('voice', voiceId);
+
+                        const response = await fetch('/', {
+                            method: 'POST',
+                            body: currentFormData
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(errorText || `Erro na conversão do texto ${i + 1}`);
+                        }
+
+                        const audioBlob = await response.blob();
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        const generationTime = response.headers.get('X-Generation-Time');
+
+                        // Show both the download section and audio container
+                        downloadSection.classList.remove('d-none');
+                        audioContainer.classList.remove('d-none');
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="text-center">${audioCounter}</td>
+                            <td>Audio ${audioCounter}</td>
+                            <td class="text-center"><span class="badge bg-success">Concluído</span></td>
+                            <td class="text-center">${generationTime}s</td>
+                            <td class="d-flex justify-content-center gap-2">
+                                <button class="btn btn-primary btn-sm play-pause" data-audio-url="${audioUrl}">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
+                                <a href="${audioUrl}" download="audio_${audioCounter}.wav" class="btn btn-success btn-sm">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <button class="btn btn-danger btn-sm delete-audio">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        `;
+
+                        const audioList = document.getElementById('audioList');
+                        audioList.appendChild(tr);
+
+                        // Create a single audio instance and store it in the row's data
+                        const audio = new Audio(audioUrl);
+                        tr._audio = audio; // Store the audio instance directly on the row element
+
+                        // Handle play/pause
+                        const playPauseBtn = tr.querySelector('.play-pause');
+                        playPauseBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const icon = this.querySelector('i');
+                            const audio = tr._audio;
+                            
+                            if (audio.paused) {
+                                audio.play();
+                                icon.classList.replace('bi-play-fill', 'bi-pause-fill');
+                            } else {
+                                audio.pause();
+                                icon.classList.replace('bi-pause-fill', 'bi-play-fill');
+                            }
+                        });
+
+                        // Handle delete - clean up audio instance
+                        const deleteBtn = tr.querySelector('.delete-audio');
+                        deleteBtn.addEventListener('click', function() {
+                            tr._audio.pause(); // Stop audio if playing
+                            tr._audio = null; // Clean up audio instance
+                            tr.remove();
+                            URL.revokeObjectURL(audioUrl);
+                        });
+
+                        // Reset audio icon when playback ends
+                        audio.addEventListener('ended', function() {
+                            const icon = tr.querySelector('.play-pause i');
+                            icon.classList.replace('bi-pause-fill', 'bi-play-fill');
+                        });
+
+                        audioCounter++;
+                    }
+                } catch (error) {
+                    alert('Erro ao converter texto para áudio: ' + error.message);
+                } finally {
+                    convertButton.disabled = false;
+                    loadingIndicator.classList.add('d-none');
+                }
+            });
+
+            fileForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                if (!this.checkValidity()) {
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                    return;
+                }
+
+                const convertFilesButton = document.getElementById('convertFilesButton');
+                const fileLoadingIndicator = document.getElementById('fileLoadingIndicator');
+                const fileDownloadSection = document.getElementById('fileDownloadSection');
+                const fileAudioContainer = document.getElementById('fileAudioContainer');
+
+                convertFilesButton.disabled = true;
+                fileLoadingIndicator.classList.remove('d-none');
+                fileDownloadSection.classList.add('d-none');
+                fileAudioContainer.innerHTML = '';
+
+                const formData = new FormData(this);
+                const files = formData.getAll('files[]');
+                const voiceId = formData.get('voice');
+
+                try {
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const currentFormData = new FormData();
+                        let text;
+                        if (file.name.toLowerCase().endsWith('.docx')) {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const response = await fetch('/read_docx', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            if (!response.ok) throw new Error(`Error reading DOCX file ${file.name}`);
+                            text = await response.text();
+                        } else {
+                            text = await file.text();
+                        }
+                        currentFormData.append('text', text);
+                        currentFormData.append('voice', voiceId);
+
+                        const response = await fetch('/', {
+                            method: 'POST',
+                            body: currentFormData
+                        });
+
+                        if (!response.ok) throw new Error(`Erro na conversão do arquivo ${file.name}`);
+
+                        const blob = await response.blob();
+                        const audioUrl = URL.createObjectURL(blob);
+                        const fileName = file.name.replace('.txt', '');
+
+                        const audioWrapper = document.createElement('div');
+                        audioWrapper.className = 'mb-4';
+                        audioWrapper.innerHTML = `
+                            <h5>${fileName}</h5>
+                            <audio controls class="mb-3 w-100" style="background-color: #2d2d2d; border-radius: 0.5rem;">
+                                <source src="${audioUrl}" type="audio/wav">
+                            </audio>
+                            <div class="d-flex gap-2 mt-2 justify-content-end">
+                                <a href="${audioUrl}" class="btn btn-success" download="${fileName}.wav" title="Baixar Áudio">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <button class="btn btn-danger" onclick="this.closest('.mb-4').remove()" title="Excluir">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                        fileAudioContainer.appendChild(audioWrapper);
+                    }
+                    fileDownloadSection.classList.remove('d-none');
+                } catch (error) {
+                    alert('Erro ao converter arquivos para áudio: ' + error.message);
+                } finally {
+                    convertFilesButton.disabled = false;
+                    fileLoadingIndicator.classList.add('d-none');
+                }
+            });
+
+            // Handle file language selection
+            const fileLanguageSelect = document.getElementById('fileLanguage');
+            const fileVoiceSelect = document.getElementById('fileVoice');
+
+            fileLanguageSelect.addEventListener('change', function() {
+                const selectedLanguage = this.value;
+                const voices = voicesData[selectedLanguage] || [];
+
+                fileVoiceSelect.innerHTML = '<option value="" disabled selected>Escolha uma voz</option>';
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    fileVoiceSelect.appendChild(option);
+                });
+
+                fileVoiceSelect.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
